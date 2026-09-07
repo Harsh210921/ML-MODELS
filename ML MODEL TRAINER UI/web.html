@@ -1,0 +1,67 @@
+<html>
+    <body>
+        <h1>
+            TRAIN YOU MODEL TEST
+        </h1>
+        <form id="apiform">
+            <label>ENTER NUMBER OF OUTPUT</label>
+            <input id="num_output" type="number" step="1">
+            <label>
+                SELECT MODEL
+            </label>
+            <select id="model_name">
+                <option> RESNET 50 </option>
+                <option> EFFICIENT NET B0 </option>
+            </select>
+              <label for="folder-picker">UPLOAD YOUR DATASET</label>
+  <!-- The webkitdirectory attribute changes the picker from file selection to folder selection -->
+  <input type="file" id="folder-picker" name="file_folder" webkitdirectory directory multiple />
+            <button id="form_button">SUBMIT</button>
+        </form>
+        <button id="test">
+            TEST THE BACKEND
+        </button>
+        <div id="box">
+
+        </div>
+
+
+
+        <script>
+            button=document.getElementById("test")
+            box=document.getElementById("box")
+            
+            form=document.getElementById("apiform")
+            form.addEventListener("submit",async function(e){
+                e.preventDefault()
+                numOutput=Number(document.getElementById("num_output").value);
+                model=document.getElementById("model_name").value
+                const data={
+                "output":numOutput,
+                "model":model
+            }
+
+
+
+
+                const response=await fetch("http://127.0.0.1:5000/send",{ method:"POST",
+                    headers:{"Content-Type": "application/json"},
+                    body: JSON.stringify(data)
+                })
+
+                
+            })
+            
+            button.addEventListener("click", async function(){
+                const response=await fetch("http://127.0.0.1:5000/test")
+                const data= await response.text();
+                box.innerText=data
+            })
+
+        </script>
+
+
+
+
+    </body>
+</html>
