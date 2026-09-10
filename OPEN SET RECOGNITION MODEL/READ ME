@@ -1,0 +1,316 @@
+This model is an basic example of open set recogintion model
+# Prototype-Based Open Set Recognition
+
+A PyTorch implementation of a **Prototype-Based Open Set Recognition (OSR)** system.
+
+The system uses a trained ResNet50 to convert images into feature vectors and then determines whether a test image belongs to one of the known classes or should be rejected as **UNKNOWN**.
+
+---
+
+## How It Works
+
+The system works in two main stages:
+
+### 1. Learning the Known Classes
+
+First, ResNet50 is trained normally on the known classes.
+
+For example:
+
+```text
+Known Classes:
+    Cat
+    Dog
+    Horse
+```
+
+After training, the final classification layer is removed and ResNet50 is used as a **feature extractor**.
+
+Each image is converted into a 2048-dimensional feature vector:
+
+```text
+Image
+  ↓
+ResNet50
+  ↓
+2048-dimensional feature vector
+```
+
+These feature vectors represent the images in a feature space.
+
+---
+
+## 2. Creating Class Prototypes
+
+For every known class, all of its training feature vectors are collected and averaged.
+
+For example:
+
+```text
+Cat images
+   ↓
+Feature vectors
+   ↓
+Mean
+   ↓
+Cat Prototype
+```
+
+The same process is performed for every known class.
+
+If there are three known classes:
+
+```text
+Cat    → Prototype 0 → [2048 values]
+Dog    → Prototype 1 → [2048 values]
+Horse  → Prototype 2 → [2048 values]
+```
+
+Each prototype represents the **centroid of its class in the feature space**.
+
+---
+
+## 3. Measuring Distance
+
+When a new image is given to the system, ResNet converts it into a 2048-dimensional feature vector.
+
+The system then calculates its distance from **every known-class prototype**.
+
+For example:
+
+```text
+                    Distance
+Test Image → Cat      0.21
+Test Image → Dog      0.83
+Test Image → Horse    1.12
+```
+
+The smallest distance identifies the class whose prototype is closest to the test image.
+
+In this example:
+
+```text
+Closest prototype → Cat
+```
+
+---
+
+## 4. Determining Whether the Image Is Actually Known
+
+Simply finding the closest class is not enough.
+
+An unknown image will also be closest to *some* known class, even if it does not actually belong to that class.
+
+Therefore, the system also uses a **distance threshold**.
+
+The threshold is obtained from the distance distribution of known training samples.
+
+The system calculates the distance of every training image to its closest known-class prototype and uses the **95th percentile** of these distances as the current rejection threshold.
+
+Conceptually:
+
+```text
+Known training images
+        ↓
+Distance to closest prototype
+        ↓
+Distance distribution
+        ↓
+95th percentile
+        ↓
+OSR Threshold
+```
+
+---
+
+## 5. Open Set Decision
+
+At test time, the system performs two decisions:
+
+### Step 1 — Find the closest known class
+
+```text
+Test Image
+    ↓
+Feature Vector
+    ↓
+Distance to all prototypes
+    ↓
+Minimum distance
+    ↓
+Closest known class
+```
+
+### Step 2 — Check whether the distance is acceptable
+
+```text
+Minimum distance
+       ↓
+Compare with threshold
+       ↓
+ ┌───────────────┐
+ │               │
+ ≤ threshold   > threshold
+ │               │
+ ↓               ↓
+Known Class    UNKNOWN
+```
+
+Therefore, even if an unknown image is technically closest to a known class, it will be rejected if it is too far away from that class prototype.
+
+---
+
+## Complete Working Pipeline
+
+```text
+                 TRAINING
+                    │
+                    ▼
+             Known Images
+                    │
+                    ▼
+                ResNet50
+                    │
+                    ▼
+          2048-D Feature Vectors
+                    │
+                    ▼
+        Group Features by Class
+                    │
+                    ▼
+         Calculate Class Mean
+                    │
+                    ▼
+              Prototypes
+                    │
+                    ▼
+       Calculate Training Distances
+                    │
+                    ▼
+      Minimum Distance per Image
+                    │
+                    ▼
+          95th Percentile
+                    │
+                    ▼
+             OSR Threshold
+
+
+                 TESTING
+                    │
+                    ▼
+               Test Image
+                    │
+                    ▼
+                ResNet50
+                    │
+                    ▼
+          2048-D Feature Vector
+                    │
+                    ▼
+       Distance to Every Prototype
+                    │
+                    ▼
+            Minimum Distance
+                    │
+                    ▼
+          Closest Known Class
+                    │
+                    ▼
+        Compare with Threshold
+                    │
+             ┌──────┴──────┐
+             ▼             ▼
+       Within threshold   Too far
+             │             │
+             ▼             ▼
+       Known Class       UNKNOWN
+```
+
+---
+
+## Example
+
+Suppose the system knows:
+
+```text
+Cat
+Dog
+Horse
+```
+
+An unknown **Elephant** image is passed to the model.
+
+Its distances might be:
+
+```text
+Cat      → 0.82
+Dog      → 0.91
+Horse    → 0.76
+```
+
+The closest class is technically:
+
+```text
+Horse → 0.76
+```
+
+But suppose:
+
+```text
+OSR Threshold = 0.40
+```
+
+Since:
+
+```text
+0.76 > 0.40
+```
+
+the system rejects the prediction:
+
+```text
+Prediction → UNKNOWN
+```
+
+This prevents the model from being forced to classify every image as one of the known classes.
+
+---
+
+## Core Idea
+
+The system does not simply ask:
+
+> "Which known class is this?"
+
+It asks two questions:
+
+```text
+1. Which known class is it closest to?
+
+2. Is it close enough to that class to be considered known?
+```
+
+This gives the system the ability to recognize samples that fall outside the known classes.
+
+---
+
+## Technologies
+
+* Python
+* PyTorch
+* Torchvision
+* ResNet50
+* ImageFolder
+* Prototype-based classification
+* Euclidean distance
+* L2 normalization
+* Distance-based unknown rejection
+
+---
+
+## Current Approach
+
+This project implements a simple **prototype-based OSR approach** to understand the fundamental mechanism of open-set recognition.
+
+The neural network learns the feature representation, while the prototype-distance and threshold logic performs the final **known vs. unknown** decision.
